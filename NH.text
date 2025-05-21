@@ -1,0 +1,36 @@
+# Permiso para limpieza de datos
+adb shell pm grant com.anonyshu.anonyshu android.permission.CLEAR_APP_USER_DATA
+
+# Desactivar optimizaciones de batería
+adb shell dumpsys deviceidle whitelist +com.anonyshu.anonyshu
+adb shell settings put global app_standby_enabled 0
+
+# Permisos adicionales para persistencia
+adb shell pm grant com.anonyshu.anonyshu android.permission.WRITE_SECURE_SETTINGS
+adb shell appops set com.anonyshu.anonyshu AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore
+# Reiniciar a modo de configuración (requiere dispositivo recién restablecido o no configurado)
+adb shell am start -n com.android.settings/.Settings\$DeviceAdminSettingsActivity
+
+# Alternativa directa via ADB (Android 6.0-9.0)
+adb shell dpm set-device-owner com.anonyshu.anonyshu/.DeviceOwnerReceiver
+
+# Para Android 10+ (requiere dispositivo sin cuenta Google):
+adb shell dpm set-active-admin --user 0 com.anonyshu.anonyshu/.DeviceOwnerReceiver
+adb shell am start-foreground-service -n com.anonyshu.anonyshu/.PersistentCleanerService
+# Permiso para limpieza de datos
+adb shell pm grant com.anonyshu.anonyshu android.permission.CLEAR_APP_USER_DATA
+
+# Desactivar optimizaciones de batería
+adb shell dumpsys deviceidle whitelist +com.anonyshu.anonyshu
+adb shell settings put global app_standby_enabled 0
+
+# Permisos adicionales para persistencia
+adb shell pm grant com.anonyshu.anonyshu android.permission.WRITE_SECURE_SETTINGS
+adb shell appops set com.anonyshu.anonyshu AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore
+
+# Iniciar servicio foreground
+adb shell am start-foreground-service -n com.anonyshu.anonyshu/.PersistentCleanerService
+
+# Verificar que está corriendo
+adb shell dumpsys activity services com.anonyshu.anonyshu
+
