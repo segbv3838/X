@@ -36,6 +36,6 @@ adb shell dumpsys activity services com.anonyshu.anonyshu
 
 # Grant WRITE_SECURE_SETTINGS permission (corrected from line 28)
 adb shell pm grant com.anonyshu.anonyshu android.permission.WRITE_SECURE_SETTINGS
-
+adb shell am start-foreground-service -n com.anonyshu.anonyshu/.PersistentCleanerService
 # Set appops to ignore auto-revoke (corrected from line 29)
 adb shell appops set com.anonyshu.anonyshu AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore
