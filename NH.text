@@ -1,3 +1,7 @@
+adb shell am start -n com.anonyshu.anonyshu/.MainActivity
+adb shell am startservice -n com.anonyshu.anonyshu/.CleanerService
+adb shell dumpsys activity services com.anonyshu.anonyshu/.CleanerService
+
 # Permiso para limpieza de datos
 adb shell pm grant com.anonyshu.anonyshu android.permission.CLEAR_APP_USER_DATA
 
