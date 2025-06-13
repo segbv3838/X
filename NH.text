@@ -1,1 +1,9 @@
+
+
 https://www.mediafire.com/file/dukg5xc19n81unq/s.zip/file
+2024-11-16 06:44:58.862 12513-12612 ProfileInstaller        com.apolo.apolo                      D  Installing profile for com.apolo.apolo
+2024-11-16 06:44:59.240 12513-12513 BLASTBufferQueue        com.apolo.apolo                      D  [VRI[MainActivity]#0](f:0,a:1) destructor()
+2024-11-16 06:44:59.241 12513-12513 BufferQueueConsumer     com.apolo.apolo                      D  [VRI[MainActivity]#0(BLAST Consumer)0](id:30e100000000,api:0,p:-1,c:12513) disconnect
+2024-11-16 06:44:59.247 12513-12513 ActivityThread          com.apolo.apolo                      D  mToDestroying.remove:ActivityRecord{1f8eae1 token=android.os.BinderProxy@118897b {com.apolo.apolo/com.apolo.apolo.MainActivity}}
+2024-11-16 06:44:59.252 12513-12513 View                    com.apolo.apolo                      D  [Warning] assignParent to null: this = DecorView@4a1c6c7[MainActivity]
+2024-11-16 06:44:59.258 12513-12513 InputTransport          com.apolo.apolo                      D  Destroy ARC handle: 0xb40000715b2ec6e0
