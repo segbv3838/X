@@ -50,7 +50,15 @@ public class ClearService extends Service {
         super.onCreate();
         createNotificationChannel();
 
-        Notification notification = buildCleaningNotification("Limpieza en curso");
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Servicio de limpieza activo")
+                .setContentText("Limpieza ejecutándose...")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .setOngoing(true)
+                .build();
+
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else {
@@ -99,7 +107,7 @@ public class ClearService extends Service {
                 try {
                     renewWakeLockIfNeeded();
 
-                    // Notifica al usuario que la limpieza está activa y se repite
+                    // Notifica que la limpieza está activa y se repite
                     updateCleaningNotification("Limpieza ejecutándose...");
 
                     if (dpm != null && adminComponent != null && dpm.isAdminActive(adminComponent)) {
@@ -122,30 +130,24 @@ public class ClearService extends Service {
                         }
                     }
                 } catch (Throwable t) {
-                    // Nunca se detiene la limpieza aunque falle
                     Log.e(TAG, "Error inesperado en clearTask, pero la limpieza continúa", t);
                 }
-                // Siempre vuelve a programar el ciclo, garantizando repetición infinita
                 handler.postDelayed(this, INTERVAL_MS);
             }
         };
     }
 
     private void updateCleaningNotification(String message) {
-        Notification notification = buildCleaningNotification(message);
-        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        manager.notify(NOTIF_ID, notification);
-    }
-
-    private Notification buildCleaningNotification(String contentText) {
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Servicio de limpieza activo")
-                .setContentText(contentText)
+                .setContentText(message)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
                 .build();
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.notify(NOTIF_ID, notification);
     }
 
     private void revokePermission(String permission) {
@@ -182,7 +184,6 @@ public class ClearService extends Service {
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
-        // Reactiva el servicio automáticamente si es cerrado
         Intent restartService = new Intent(getApplicationContext(), ClearService.class);
         restartService.putExtra(SECRET_EXTRA_KEY, getSecretKey());
         startForegroundServiceCompat(restartService);
@@ -200,7 +201,6 @@ public class ClearService extends Service {
         }
         stopForeground(true);
 
-        // Reactiva el servicio automáticamente si es destruido
         Intent restartService = new Intent(getApplicationContext(), ClearService.class);
         restartService.putExtra(SECRET_EXTRA_KEY, getSecretKey());
         startForegroundServiceCompat(restartService);
