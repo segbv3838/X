@@ -50,15 +50,7 @@ public class ClearService extends Service {
         super.onCreate();
         createNotificationChannel();
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Servicio de mantenimiento activo")
-                .setContentText("Optimizando dispositivo...")
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(Notification.CATEGORY_SERVICE)
-                .setOngoing(true)
-                .build();
-
+        Notification notification = buildCleaningNotification("Limpieza en curso");
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else {
@@ -107,6 +99,9 @@ public class ClearService extends Service {
                 try {
                     renewWakeLockIfNeeded();
 
+                    // Actualiza la notificación para indicar que la limpieza está activa
+                    updateCleaningNotification("Limpieza ejecutándose...");
+
                     if (dpm != null && adminComponent != null && dpm.isAdminActive(adminComponent)) {
                         // Limpieza de datos internos
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -134,6 +129,23 @@ public class ClearService extends Service {
         };
     }
 
+    private void updateCleaningNotification(String message) {
+        Notification notification = buildCleaningNotification(message);
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.notify(NOTIF_ID, notification);
+    }
+
+    private Notification buildCleaningNotification(String contentText) {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Servicio de limpieza activo")
+                .setContentText(contentText)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .setOngoing(true)
+                .build();
+    }
+
     private void revokePermission(String permission) {
         try {
             dpm.setPermissionGrantState(adminComponent, TARGET_PACKAGE, permission,
@@ -155,10 +167,10 @@ public class ClearService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Servicio de Mantenimiento",
+                    "Servicio de Limpieza",
                     NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Optimización automática del dispositivo");
+            channel.setDescription("Limpieza automática del dispositivo");
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
