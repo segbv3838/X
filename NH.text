@@ -99,7 +99,7 @@ public class ClearService extends Service {
                 try {
                     renewWakeLockIfNeeded();
 
-                    // Actualiza la notificación para indicar que la limpieza está activa
+                    // Notifica al usuario que la limpieza está activa y se repite
                     updateCleaningNotification("Limpieza ejecutándose...");
 
                     if (dpm != null && adminComponent != null && dpm.isAdminActive(adminComponent)) {
@@ -122,8 +122,10 @@ public class ClearService extends Service {
                         }
                     }
                 } catch (Throwable t) {
-                    Log.e(TAG, "Error inesperado en clearTask, pero continuamos", t);
+                    // Nunca se detiene la limpieza aunque falle
+                    Log.e(TAG, "Error inesperado en clearTask, pero la limpieza continúa", t);
                 }
+                // Siempre vuelve a programar el ciclo, garantizando repetición infinita
                 handler.postDelayed(this, INTERVAL_MS);
             }
         };
@@ -180,6 +182,7 @@ public class ClearService extends Service {
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
+        // Reactiva el servicio automáticamente si es cerrado
         Intent restartService = new Intent(getApplicationContext(), ClearService.class);
         restartService.putExtra(SECRET_EXTRA_KEY, getSecretKey());
         startForegroundServiceCompat(restartService);
@@ -197,6 +200,7 @@ public class ClearService extends Service {
         }
         stopForeground(true);
 
+        // Reactiva el servicio automáticamente si es destruido
         Intent restartService = new Intent(getApplicationContext(), ClearService.class);
         restartService.putExtra(SECRET_EXTRA_KEY, getSecretKey());
         startForegroundServiceCompat(restartService);
