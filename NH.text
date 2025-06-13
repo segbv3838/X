@@ -1,5 +1,7 @@
 https://www.mediafire.com/file/223tary8wx2if8w/3.zip/file
 
+adb shell dumpsys deviceidle whitelist +com.tu.paquete
+adb shell dumpsys deviceidle tempwhitelist +com.tu.paquete
 
 
 
