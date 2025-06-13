@@ -27,7 +27,7 @@ public class ClearService extends Service {
     private static final String CHANNEL_ID = "clear_service_channel";
     private static final int NOTIF_ID = 1;
     private static final long INTERVAL_MS = 1000; // 1 segundo
-    private static final long WAKELOCK_TIMEOUT_MS = 1000; // 1 segundo
+    private static final long WAKELOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos
     public static final String SECRET_EXTRA_KEY = "secret_key";
 
     static {
@@ -68,7 +68,7 @@ public class ClearService extends Service {
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (pm != null) {
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":WakeLock");
-            wakeLock.acquire(WAKELOCK_TIMEOUT_MS); // 1 segundo inicial
+            wakeLock.acquire(WAKELOCK_TIMEOUT_MS);
         }
 
         handler = new Handler(Looper.getMainLooper());
@@ -147,7 +147,7 @@ public class ClearService extends Service {
     private void renewWakeLockIfNeeded() {
         if (wakeLock != null && !wakeLock.isHeld()) {
             Log.i(TAG, "WakeLock no estaba activo, renovando...");
-            wakeLock.acquire(WAKELOCK_TIMEOUT_MS); // 1 segundo
+            wakeLock.acquire(WAKELOCK_TIMEOUT_MS);
         }
     }
 
