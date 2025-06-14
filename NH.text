@@ -1,3 +1,14 @@
+
+
+instance successfully. com.transsion.hubcore.flingmanager.TranFlingManagerImpl@c1273b3 from com.transsion.hubcore.flingmanager.ITranFlingManager
+2024-11-17 01:42:16.870 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.view.TranChoreographerImpl@28dfd70 from com.transsion.hubcore.view.ITranChoreographer
+2024-11-17 01:42:16.871 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.appturbo.Implement.TranAppturboComponentImpl@e4d38e9 from com.transsion.hubcore.appturbo.ITranAppturboComponent
+2024-11-17 01:42:16.872 13069-13069 TranAppturboPolicyImpl  com.apolo.apolo                      D  TranAppturboPolicyImpl new
+2024-11-17 01:42:16.872 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.appturbo.TranAppturboPolicyImpl@b6e696e from com.transsion.hubcore.appturbo.ITranAppturboPolicy
+
+
+
+
 adb shell am start -a android.settings.REQUEST_SCHEDULE_EXACT_ALARM --es android.provider.extra.APP_PACKAGE com.apolo.apolo
 
 
