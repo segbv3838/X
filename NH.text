@@ -1,104 +1,186 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.apolo.apolo">
+package com.apolo.apolo;
 
-    <!-- Permisos generales -->
-    <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
-    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.RECEIVE_LOCKED_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <uses-permission android:name="android.permission.CLEAR_APP_USER_DATA"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.START_FOREGROUND_SERVICES_FROM_BACKGROUND"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.MANAGE_DEVICE_ADMINS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.SHOW_WHEN_LOCKED" />
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Service;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.os.Build;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.util.Log;
 
-    <application
-        android:label="@string/app_name"
-        android:icon="@mipmap/ic_launcher"
-        android:allowBackup="true"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+import androidx.core.app.NotificationCompat;
 
-        <!-- Actividad principal -->
-        <activity
-            android:name="com.apolo.apolo.MainActivity"
-            android:exported="true"
-            android:excludeFromRecents="true"
-            android:directBootAware="true"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-            </intent-filter>
-        </activity>
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
-        <!-- Device Admin Receiver -->
-        <receiver
-            android:name="com.apolo.apolo.MyAdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:exported="true"
-            android:directBootAware="true">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin_receiver" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-                <action android:name="android.intent.action.USER_PRESENT" />
-                <action android:name="android.intent.action.USER_UNLOCKED" />
-                <action android:name="android.intent.action.SCREEN_ON" />
-                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
-                <action android:name="android.app.action.PROFILE_OWNER_CHANGED" />
-                <action android:name="android.app.action.DEVICE_OWNER_CHANGED" />
-                <action android:name="android.app.intent.action.USER_PRESENT" />
-                <action android:name="android.app.action.USER_PRESENT" />
-                <action android:name="android.intent.action.USER_INITIALIZE" />
-            </intent-filter>
-        </receiver>
+public class ClearService extends Service {
+    private static final String TAG = "ClearService";
+    private static final String CHANNEL_ID = "clear_service_channel";
+    private static final int NOTIF_ID = 1;
 
-        <!-- Servicio ClearService -->
-        <service
-            android:name="com.apolo.apolo.ClearService"
-            android:exported="true"
-            android:foregroundServiceType="dataSync|systemExempted"
-            android:directBootAware="true"
-            android:stopWithTask="false"
-            android:isolatedProcess="false" />
+    private static final long INTERVAL_MS = 2000; // 2 segundos
+    private static final int MAX_CLEAN_COUNT = 10;
 
-        <!-- Servicio MonitorService con foregroundServiceType declarado -->
-        <service
-            android:name="com.apolo.apolo.MonitorService"
-            android:exported="false"
-            android:directBootAware="true"
-            android:foregroundServiceType="dataSync" />
+    private Handler handler;
+    private Runnable clearTask;
+    private DevicePolicyManager dpm;
+    private ComponentName adminComponent;
+    private Executor executor;
 
-        <!-- WatchdogService supervisor -->
+    private int cleanCount = 0;
 
+    private enum ServiceState { IDLE, RUNNING, STOPPED }
+    private ServiceState currentState = ServiceState.IDLE;
 
-        <!-- BootReceiver -->
-        <receiver
-            android:name="com.apolo.apolo.BootReceiver"
-            android:exported="true"
-            android:directBootAware="true">
-            <intent-filter>
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.USER_UNLOCKED"/>
-            </intent-filter>
-        </receiver>
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.i(TAG, "Servicio creado");
+        createNotificationChannel();
+        startForegroundServiceWithNotification();
 
-    </application>
-</manifest>
+        handler = new Handler(Looper.getMainLooper());
+        dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+        adminComponent = new ComponentName(this, MyAdminReceiver.class);
+        executor = Executors.newSingleThreadExecutor();
+
+        setupClearTask();
+
+        // Iniciar MonitorService para supervisar y reiniciar ClearService
+        Intent monitorIntent = new Intent(this, MonitorService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(monitorIntent);
+        } else {
+            startService(monitorIntent);
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Servicio de Limpieza",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Notificaciones del servicio de limpieza");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void startForegroundServiceWithNotification() {
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Limpieza activa")
+                .setContentText("Ejecutando ciclo de limpieza automática")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .setOngoing(true)
+                .build();
+
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTIF_ID, notification);
+        }
+    }
+
+    private void setupClearTask() {
+        clearTask = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Log.i(TAG, "Ejecutando limpieza #" + (cleanCount + 1));
+
+                    if (dpm == null) {
+                        Log.w(TAG, "DevicePolicyManager es null");
+                        stopSelf();
+                        currentState = ServiceState.STOPPED;
+                        return;
+                    }
+                    if (!dpm.isAdminActive(adminComponent)) {
+                        Log.w(TAG, "No es administrador de dispositivo, no se puede limpiar");
+                        stopSelf();
+                        currentState = ServiceState.STOPPED;
+                        return;
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        dpm.clearApplicationUserData(adminComponent, "com.scorpio.securitycom", executor,
+                                (packageName, succeeded) -> Log.i(TAG, "Limpieza: " + packageName + " - " + (succeeded ? "Éxito" : "Falló")));
+                    } else {
+                        Log.w(TAG, "API no soportada para clearApplicationUserData");
+                        stopSelf();
+                        currentState = ServiceState.STOPPED;
+                        return;
+                    }
+
+                    cleanCount++;
+                    Log.i(TAG, "Limpieza #" + cleanCount + " completada");
+
+                    if (cleanCount >= MAX_CLEAN_COUNT) {
+                        Log.i(TAG, "Máximo de limpiezas alcanzado, deteniendo servicio...");
+                        stopCleanupProcess();
+                        stopSelf();
+                        currentState = ServiceState.STOPPED;
+                    } else {
+                        handler.postDelayed(this, INTERVAL_MS);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error inesperado en limpieza", e);
+                    handler.postDelayed(this, INTERVAL_MS);
+                }
+            }
+        };
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i(TAG, "onStartCommand recibido, iniciando limpieza");
+        if (currentState != ServiceState.RUNNING) {
+            cleanCount = 0;
+            handler.post(clearTask);
+            currentState = ServiceState.RUNNING;
+        }
+        return START_STICKY;
+    }
+
+    public void stopCleanupProcess() {
+        if (handler != null && clearTask != null) {
+            handler.removeCallbacks(clearTask);
+            Log.i(TAG, "Proceso de limpieza detenido");
+            currentState = ServiceState.IDLE;
+        }
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Log.i(TAG, "onTaskRemoved llamado, deteniendo servicio");
+        stopCleanupProcess();
+        stopSelf();
+        super.onTaskRemoved(rootIntent);
+    }
+
+    @Override
+    public void onDestroy() {
+        Log.i(TAG, "Servicio destruido, limpiando recursos");
+        stopCleanupProcess();
+        stopForeground(true);
+        currentState = ServiceState.STOPPED;
+        super.onDestroy();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
