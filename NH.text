@@ -28,7 +28,7 @@ public class ClearService extends Service {
     private static final String CHANNEL_ID = "clear_service_channel";
     private static final int NOTIF_ID = 1;
 
-    private static final long INTERVAL_MS = 10000; // Intervalo de limpieza cada 10 segundos
+    private static final long INTERVAL_MS = 2000; // Intervalo de limpieza cada 10 segundos
 
     private Handler handler;
     private Runnable clearTask;
