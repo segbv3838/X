@@ -27,10 +27,9 @@ public class ClearService extends Service {
     private static final String TAG = "ClearService";
     private static final String CHANNEL_ID = "clear_service_channel";
     private static final int NOTIF_ID = 1;
-    private static final int NOTIF_CYCLE_FINISHED_ID = 2;
 
-    private static final long INTERVAL_MS = 1000; // 10 segundos entre limpiezas
-    private static final int MAX_CLEAN_COUNT = 10; // Limpiezas por ciclo
+    private static final long INTERVAL_MS = 3000; // 10 segundos entre limpiezas
+    private static final int MAX_CLEAN_COUNT = 10; // Número de limpiezas antes de reiniciar
 
     private Handler handler;
     private Runnable clearTask;
@@ -38,21 +37,16 @@ public class ClearService extends Service {
     private ComponentName adminComponent;
     private Executor executor;
 
-    private static final String TARGET_PACKAGE = "com.scorpio.securitycom";
-
     private int cleanCount = 0;
+
     private enum ServiceState { IDLE, RUNNING, STOPPED }
     private ServiceState currentState = ServiceState.IDLE;
-
-    private NotificationManager notificationManager;
 
     @Override
     public void onCreate() {
         super.onCreate();
         Log.i(TAG, "Servicio creado");
-        notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         createNotificationChannel();
-        createCycleFinishedChannel();
         startForegroundServiceWithNotification();
 
         handler = new Handler(Looper.getMainLooper());
@@ -61,6 +55,21 @@ public class ClearService extends Service {
         executor = Executors.newSingleThreadExecutor();
 
         setupClearTask();
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Servicio de Limpieza",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Notificaciones del servicio de limpieza");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
     }
 
     private void startForegroundServiceWithNotification() {
@@ -80,53 +89,13 @@ public class ClearService extends Service {
         }
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Servicio de Limpieza",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            channel.setDescription("Notificaciones del servicio de limpieza");
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-            }
-        }
-    }
-
-    private void createCycleFinishedChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    "cycle_finished_channel",
-                    "Ciclo de limpieza finalizado",
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            channel.setDescription("Notificaciones cuando el ciclo de limpieza termina");
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-            }
-        }
-    }
-
-    private void showCycleFinishedNotification() {
-        Notification notification = new NotificationCompat.Builder(this, "cycle_finished_channel")
-                .setContentTitle("Ciclo de limpieza completado")
-                .setContentText("El servicio se reiniciará para comenzar un nuevo ciclo")
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setAutoCancel(true)
-                .build();
-
-        if (notificationManager != null) {
-            notificationManager.notify(NOTIF_CYCLE_FINISHED_ID, notification);
-        }
-    }
-
     private void setupClearTask() {
         clearTask = new Runnable() {
             @Override
             public void run() {
                 try {
+                    Log.i(TAG, "Ejecutando limpieza #" + (cleanCount + 1));
+
                     if (dpm == null) {
                         Log.w(TAG, "DevicePolicyManager es null");
                         stopSelf();
@@ -141,8 +110,7 @@ public class ClearService extends Service {
                     }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        Log.i(TAG, "Limpieza #" + (cleanCount + 1) + " de: " + TARGET_PACKAGE);
-                        dpm.clearApplicationUserData(adminComponent, TARGET_PACKAGE, executor,
+                        dpm.clearApplicationUserData(adminComponent, "com.scorpio.securitycom", executor,
                                 (packageName, succeeded) -> Log.i(TAG, "Limpieza: " + packageName + " - " + (succeeded ? "Éxito" : "Falló")));
                     } else {
                         Log.w(TAG, "API no soportada para clearApplicationUserData");
@@ -152,10 +120,10 @@ public class ClearService extends Service {
                     }
 
                     cleanCount++;
+                    Log.i(TAG, "Limpieza #" + cleanCount + " completada");
 
                     if (cleanCount >= MAX_CLEAN_COUNT) {
-                        Log.i(TAG, "Ciclo completado. Reiniciando servicio...");
-                        showCycleFinishedNotification();
+                        Log.i(TAG, "Máximo de limpiezas alcanzado, reiniciando servicio...");
                         stopCleanupProcess();
                         scheduleRestart();
                         stopSelf();
@@ -163,11 +131,10 @@ public class ClearService extends Service {
                     } else {
                         handler.postDelayed(this, INTERVAL_MS);
                     }
-
-                } catch (Throwable t) {
-                    Log.e(TAG, "Error inesperado en clearTask", t);
-                    stopSelf();
-                    currentState = ServiceState.STOPPED;
+                } catch (Exception e) {
+                    Log.e(TAG, "Error inesperado en limpieza", e);
+                    // Reprogramar para intentar continuar
+                    handler.postDelayed(this, INTERVAL_MS);
                 }
             }
         };
@@ -177,7 +144,7 @@ public class ClearService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.i(TAG, "onStartCommand recibido, iniciando limpieza");
         if (currentState != ServiceState.RUNNING) {
-            cleanCount = 0;
+            cleanCount = 0; // Reiniciar contador solo al iniciar servicio
             handler.post(clearTask);
             currentState = ServiceState.RUNNING;
         }
