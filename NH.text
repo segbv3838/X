@@ -1,3 +1,8 @@
+adb shell am start -a android.settings.REQUEST_SCHEDULE_EXACT_ALARM --es android.provider.extra.APP_PACKAGE com.apolo.apolo
+
+
+
+
 package com.apolo.apolo;
 
 import android.annotation.SuppressLint;
