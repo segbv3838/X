@@ -1,22 +1,5 @@
-
-
-instance successfully. com.transsion.hubcore.flingmanager.TranFlingManagerImpl@c1273b3 from com.transsion.hubcore.flingmanager.ITranFlingManager
-2024-11-17 01:42:16.870 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.view.TranChoreographerImpl@28dfd70 from com.transsion.hubcore.view.ITranChoreographer
-2024-11-17 01:42:16.871 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.appturbo.Implement.TranAppturboComponentImpl@e4d38e9 from com.transsion.hubcore.appturbo.ITranAppturboComponent
-2024-11-17 01:42:16.872 13069-13069 TranAppturboPolicyImpl  com.apolo.apolo                      D  TranAppturboPolicyImpl new
-2024-11-17 01:42:16.872 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.appturbo.TranAppturboPolicyImpl@b6e696e from com.transsion.hubcore.appturbo.ITranAppturboPolicy
-
-
-
-
-adb shell am start -a android.settings.REQUEST_SCHEDULE_EXACT_ALARM --es android.provider.extra.APP_PACKAGE com.apolo.apolo
-
-
-
-
 package com.apolo.apolo;
 
-import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -45,7 +28,7 @@ public class ClearService extends Service {
     private static final String CHANNEL_ID = "clear_service_channel";
     private static final int NOTIF_ID = 1;
 
-    private static final long INTERVAL_MS = 1000; // Intervalo de limpieza cada 10 segundos
+    private static final long INTERVAL_MS = 10000; // Intervalo de limpieza cada 10 segundos
 
     private Handler handler;
     private Runnable clearTask;
@@ -75,8 +58,8 @@ public class ClearService extends Service {
 
     private void startForegroundServiceWithNotification() {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("PROTOCOLO APOLO")
-                .setContentText("Team MOTOKINGPRO")
+                .setContentTitle("Limpieza activa")
+                .setContentText("El sistema se está limpiando continuamente")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -130,7 +113,7 @@ public class ClearService extends Service {
         return START_STICKY;
     }
 
-    // Método para detener el proceso de limpieza
+    // Detener la limpieza actual
     public void stopCleanupProcess() {
         if (handler != null && clearTask != null) {
             handler.removeCallbacks(clearTask);
@@ -139,8 +122,7 @@ public class ClearService extends Service {
         }
     }
 
-    // Método para reiniciar el servicio en 1 segundo usando AlarmManager con validaciones
-    @SuppressLint("ScheduleExactAlarm")
+    // Programar reinicio del servicio en 1 segundo usando AlarmManager
     private void scheduleRestart() {
         Log.i(TAG, "Programando reinicio del servicio en 1 segundo");
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
