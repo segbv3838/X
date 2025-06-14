@@ -1,0 +1,34 @@
+2024-11-17 01:42:15.190 11723-11723 ClearService            com.apolo.apolo                      I  Intentando limpiar datos de: com.scorpio.securitycom
+2024-11-17 01:42:15.191 11723-11754 com.apolo.apolo         com.apolo.apolo                      I  System.exit called, status: 1
+2024-11-17 01:42:15.191 11723-11754 AndroidRuntime          com.apolo.apolo                      I  VM exiting with result code 1, cleanup skipped.
+---------------------------- PROCESS ENDED (11723) for package com.apolo.apolo ----------------------------
+---------------------------- PROCESS STARTED (13069) for package com.apolo.apolo ----------------------------
+2024-11-17 01:42:16.690 13069-13069 nativeloader            com.apolo.apolo                      D  Configuring clns-4 for other apk /data/app/~~48mnHJQXAbnJGTyII-azTw==/com.apolo.apolo-PNLS7f_6t5r1BJFYoZ1iUg==/base.apk. target_sdk_version=35, uses_libraries=, library_path=/data/app/~~48mnHJQXAbnJGTyII-azTw==/com.apolo.apolo-PNLS7f_6t5r1BJFYoZ1iUg==/lib/arm64:/data/app/~~48mnHJQXAbnJGTyII-azTw==/com.apolo.apolo-PNLS7f_6t5r1BJFYoZ1iUg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.apolo.apolo
+2024-11-17 01:42:16.709 13069-13069 nativeloader            com.apolo.apolo                      D  Load libframework-connectivity-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity.jar: ok
+2024-11-17 01:42:16.723 13069-13069 GraphicsEnvironment     com.apolo.apolo                      V  ANGLE Developer option for 'com.apolo.apolo' set to: 'default'
+2024-11-17 01:42:16.725 13069-13069 GraphicsEnvironment     com.apolo.apolo                      V  ANGLE GameManagerService for com.apolo.apolo: false
+2024-11-17 01:42:16.726 13069-13069 GraphicsEnvironment     com.apolo.apolo                      V  Neither updatable production driver nor prerelease driver is supported.
+2024-11-17 01:42:16.745 13069-13069 LoadedApk               com.apolo.apolo                      I  No resource references to update in package com.transsion.theme.icon
+2024-11-17 01:42:16.746 13069-13069 NetworkSecurityConfig   com.apolo.apolo                      D  No Network Security Config specified, using platform default
+2024-11-17 01:42:16.749 13069-13069 NetworkSecurityConfig   com.apolo.apolo                      D  No Network Security Config specified, using platform default
+2024-11-17 01:42:16.751 13069-13069 Compatibil...geReporter com.apolo.apolo                      D  Compat change id reported: 183155436; UID 10201; state: ENABLED
+2024-11-17 01:42:16.759 13069-13069 os.SingleLiceFactory    com.apolo.apolo                      D  using android.app.IActivityThreadLice$DefaultImpl@8110440 instead of com.transsion.activityembedding.ActivityEmbeddingLiceFactory  from android.app.IActivityThreadLice
+2024-11-17 01:42:16.822 13069-13069 ClearService            com.apolo.apolo                      I  Servicio creado
+2024-11-17 01:42:16.826 13069-13069 ClearService            com.apolo.apolo                      I  Canal de notificación creado
+2024-11-17 01:42:16.855 13069-13069 MSYNC3-Var...efreshRate com.apolo.apolo                      I  Variable refreshrate is disabled
+2024-11-17 01:42:16.860 13069-13069 ClearService            com.apolo.apolo                      I  onStartCommand recibido, iniciando limpieza
+2024-11-17 01:42:16.869 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.flingmanager.TranFlingManagerImpl@c1273b3 from com.transsion.hubcore.flingmanager.ITranFlingManager
+2024-11-17 01:42:16.870 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.view.TranChoreographerImpl@28dfd70 from com.transsion.hubcore.view.ITranChoreographer
+2024-11-17 01:42:16.871 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.appturbo.Implement.TranAppturboComponentImpl@e4d38e9 from com.transsion.hubcore.appturbo.ITranAppturboComponent
+2024-11-17 01:42:16.872 13069-13069 TranAppturboPolicyImpl  com.apolo.apolo                      D  TranAppturboPolicyImpl new
+2024-11-17 01:42:16.872 13069-13069 TranClassInfo           com.apolo.apolo                      D  instance successfully. com.transsion.hubcore.appturbo.TranAppturboPolicyImpl@b6e696e from com.transsion.hubcore.appturbo.ITranAppturboPolicy
+2024-11-17 01:42:16.875 13069-13069 ClearService            com.apolo.apolo                      I  Intentando limpiar datos de: com.scorpio.securitycom
+2024-11-17 01:42:16.928 13069-13096 ClearService            com.apolo.apolo                      I  Limpieza: com.scorpio.securitycom - Éxito
+2024-11-17 01:42:17.891 13069-13069 ClearService            com.apolo.apolo                      I  Intentando limpiar datos de: com.scorpio.securitycom
+2024-11-17 01:42:17.939 13069-13096 ClearService            com.apolo.apolo                      I  Limpieza: com.scorpio.securitycom - Éxito
+2024-11-17 01:42:18.899 13069-13069 ClearService            com.apolo.apolo                      I  Intentando limpiar datos de: com.scorpio.securitycom
+2024-11-17 01:42:18.940 13069-13096 ClearService            com.apolo.apolo                      I  Limpieza: com.scorpio.securitycom - Éxito
+2024-11-17 01:42:19.908 13069-13069 ClearService            com.apolo.apolo                      I  Intentando limpiar datos de: com.scorpio.securitycom
+2024-11-17 01:42:19.945 13069-13096 ClearService            com.apolo.apolo                      I  Limpieza: com.scorpio.securitycom - Éxito
+2024-11-17 01:42:20.923 13069-13069 ClearService            com.apolo.apolo                      I  Intentando limpiar datos de: com.scorpio.securitycom
+2024-11-17 01:42:20.962 13069-13096 ClearService            com.apolo.apolo                      I  Limpieza: com.scorpio.securitycom - Éxito
