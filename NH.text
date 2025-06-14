@@ -78,11 +78,12 @@
             android:stopWithTask="false"
             android:isolatedProcess="false" />
 
-        <!-- Servicio MonitorService -->
+        <!-- Servicio MonitorService con foregroundServiceType declarado -->
         <service
             android:name="com.apolo.apolo.MonitorService"
             android:exported="false"
-            android:directBootAware="true" />
+            android:directBootAware="true"
+            android:foregroundServiceType="dataSync" />
 
         <!-- WatchdogService supervisor -->
 
