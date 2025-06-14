@@ -29,7 +29,7 @@ public class ClearService extends Service {
     private static final int NOTIF_ID = 1;
     private static final int NOTIF_CYCLE_FINISHED_ID = 2;
 
-    private static final long INTERVAL_MS = 10000; // 10 segundos entre limpiezas
+    private static final long INTERVAL_MS = 1000; // 10 segundos entre limpiezas
     private static final int MAX_CLEAN_COUNT = 10; // Limpiezas por ciclo
 
     private Handler handler;
