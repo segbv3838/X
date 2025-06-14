@@ -1,70 +1,47 @@
 package com.apolo.apolo;
 
-import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
-import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-
-public class ClearService extends Service {
-    private static final String TAG = "ClearService";
-    private static final String CHANNEL_ID = "clear_service_channel";
-    private static final int NOTIF_ID = 1;
-
-    private static final long INTERVAL_MS = 3000; // 10 segundos entre limpiezas
-    private static final int MAX_CLEAN_COUNT = 10; // Número de limpiezas antes de reiniciar
+public class MonitorService extends Service {
+    private static final String TAG = "MonitorService";
+    private static final String CHANNEL_ID = "monitor_service_channel";
+    private static final int NOTIF_ID = 1001;
+    private static final long RESTART_INTERVAL_MS = 2000; // 15 segundos
 
     private Handler handler;
-    private Runnable clearTask;
-    private DevicePolicyManager dpm;
-    private ComponentName adminComponent;
-    private Executor executor;
-
-    private int cleanCount = 0;
-
-    private enum ServiceState { IDLE, RUNNING, STOPPED }
-    private ServiceState currentState = ServiceState.IDLE;
+    private Runnable restartRunnable;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.i(TAG, "Servicio creado");
         createNotificationChannel();
         startForegroundServiceWithNotification();
 
         handler = new Handler(Looper.getMainLooper());
-        dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
-        adminComponent = new ComponentName(this, MyAdminReceiver.class);
-        executor = Executors.newSingleThreadExecutor();
-
-        setupClearTask();
+        setupRestartRunnable();
+        handler.post(restartRunnable);
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Servicio de Limpieza",
+                    "Monitor Servicio",
                     NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Notificaciones del servicio de limpieza");
+            channel.setDescription("Reinicia ClearService periódicamente");
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
@@ -74,10 +51,10 @@ public class ClearService extends Service {
 
     private void startForegroundServiceWithNotification() {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Limpieza activa")
-                .setContentText("Ejecutando ciclo de limpieza automática")
+                .setContentTitle("Monitor activo")
+                .setContentText("Reiniciando servicio de limpieza periódicamente")
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
                 .build();
@@ -89,119 +66,43 @@ public class ClearService extends Service {
         }
     }
 
-    private void setupClearTask() {
-        clearTask = new Runnable() {
+    private void setupRestartRunnable() {
+        restartRunnable = new Runnable() {
             @Override
             public void run() {
-                try {
-                    Log.i(TAG, "Ejecutando limpieza #" + (cleanCount + 1));
+                Log.i(TAG, "Reiniciando ClearService...");
 
-                    if (dpm == null) {
-                        Log.w(TAG, "DevicePolicyManager es null");
-                        stopSelf();
-                        currentState = ServiceState.STOPPED;
-                        return;
-                    }
-                    if (!dpm.isAdminActive(adminComponent)) {
-                        Log.w(TAG, "No es administrador de dispositivo, no se puede limpiar");
-                        stopSelf();
-                        currentState = ServiceState.STOPPED;
-                        return;
-                    }
+                // Detener ClearService si está corriendo
+                Intent stopIntent = new Intent(MonitorService.this, ClearService.class);
+                stopService(stopIntent);
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        dpm.clearApplicationUserData(adminComponent, "com.scorpio.securitycom", executor,
-                                (packageName, succeeded) -> Log.i(TAG, "Limpieza: " + packageName + " - " + (succeeded ? "Éxito" : "Falló")));
-                    } else {
-                        Log.w(TAG, "API no soportada para clearApplicationUserData");
-                        stopSelf();
-                        currentState = ServiceState.STOPPED;
-                        return;
-                    }
-
-                    cleanCount++;
-                    Log.i(TAG, "Limpieza #" + cleanCount + " completada");
-
-                    if (cleanCount >= MAX_CLEAN_COUNT) {
-                        Log.i(TAG, "Máximo de limpiezas alcanzado, reiniciando servicio...");
-                        stopCleanupProcess();
-                        scheduleRestart();
-                        stopSelf();
-                        currentState = ServiceState.STOPPED;
-                    } else {
-                        handler.postDelayed(this, INTERVAL_MS);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error inesperado en limpieza", e);
-                    // Reprogramar para intentar continuar
-                    handler.postDelayed(this, INTERVAL_MS);
+                // Iniciar ClearService
+                Intent startIntent = new Intent(MonitorService.this, ClearService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(startIntent);
+                } else {
+                    startService(startIntent);
                 }
+
+                // Reprogramar reinicio
+                handler.postDelayed(this, RESTART_INTERVAL_MS);
             }
         };
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i(TAG, "onStartCommand recibido, iniciando limpieza");
-        if (currentState != ServiceState.RUNNING) {
-            cleanCount = 0; // Reiniciar contador solo al iniciar servicio
-            handler.post(clearTask);
-            currentState = ServiceState.RUNNING;
-        }
+        Log.i(TAG, "MonitorService iniciado");
         return START_STICKY;
-    }
-
-    public void stopCleanupProcess() {
-        if (handler != null && clearTask != null) {
-            handler.removeCallbacks(clearTask);
-            Log.i(TAG, "Proceso de limpieza detenido");
-            currentState = ServiceState.IDLE;
-        }
-    }
-
-    private void scheduleRestart() {
-        Log.i(TAG, "Programando reinicio del servicio en 1 segundo");
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        if (alarmManager == null) {
-            Log.e(TAG, "AlarmManager es null, no se puede programar reinicio");
-            return;
-        }
-
-        Intent restartServiceIntent = new Intent(getApplicationContext(), ClearService.class);
-        PendingIntent pendingIntent = PendingIntent.getService(
-                this,
-                0,
-                restartServiceIntent,
-                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_CANCEL_CURRENT
-        );
-
-        long triggerAtMillis = SystemClock.elapsedRealtime() + 1000; // 1 segundo
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAtMillis, pendingIntent);
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAtMillis, pendingIntent);
-        } else {
-            alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAtMillis, pendingIntent);
-        }
-    }
-
-    @Override
-    public void onTaskRemoved(Intent rootIntent) {
-        Log.i(TAG, "onTaskRemoved llamado, reiniciando servicio");
-        stopCleanupProcess();
-        scheduleRestart();
-        super.onTaskRemoved(rootIntent);
     }
 
     @Override
     public void onDestroy() {
-        Log.i(TAG, "Servicio destruido, limpiando recursos");
-        stopCleanupProcess();
-        stopForeground(true);
-        scheduleRestart();
-        currentState = ServiceState.STOPPED;
         super.onDestroy();
+        if (handler != null && restartRunnable != null) {
+            handler.removeCallbacks(restartRunnable);
+        }
+        Log.i(TAG, "MonitorService destruido");
     }
 
     @Override
